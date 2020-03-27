@@ -35,8 +35,7 @@ class Layer(ABC):
 
 
 class Dense(Layer):
-    """
-    Implementation of the fully-connected layer. Works only for batches of vector inputs.
+    """Implementation of the fully-connected layer. Works only for batches of vector inputs.
     """
 
     def __init__(self, units, activation=None):
@@ -53,22 +52,31 @@ class Dense(Layer):
             n_rows = sum(i.shape[-1] for i in inputs)
         else:
             n_rows = inputs.shape[-1]
-        self.weights = Values(shape=(n_rows, self.units))
-        print('setting weights shape as ' + str(self.weights.shape))
-        self.weights.set_values(np.random.normal(0, 1, self.weights.shape))  # TODO temporary here
+        self.weights = Values(shape=(n_rows, self.units), trainable=True)
+
+        # Dot product with the inputs
         dot = DotProduct()([inputs, self.weights])
-        print('setting dot shape as ' + str(dot.shape))
+
+        # Create the biases
         if dot.shape[0] is None:
-            self.biases = Values(shape=dot.shape[1:])
+            biases_shape = dot.shape[1:]
         else:
-            self.biases = Values(shape=dot.shape)
-        print('setting biases shape as ' + str(self.biases.shape))
+            biases_shape = dot.shape
+        self.biases = Values(shape=biases_shape, trainable=True)
+
         sum_biases = Sum()([dot, self.biases])
-        print('setting sum shape as ' + str(sum_biases.shape))
+
+        self._init_weights()
+
         if self.activation is not None:
             return self.activation()(sum_biases)
         else:
             return sum_biases
+
+    def _init_weights(self):
+        stdev = np.sqrt(2. / self.weights.shape[-1])
+        self.weights.set_values(np.random.standard_normal(size=self.weights.shape) / stdev)
+        self.biases.set_values(np.zeros(self.biases.shape))
 
     def _check_input(self, inputs):
         """Ensures that all inputs have the same first shape
