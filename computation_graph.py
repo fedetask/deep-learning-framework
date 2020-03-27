@@ -117,7 +117,7 @@ class Values(ComputationNode):
             self.set_values(values) to ensure shape consistency.
     """
 
-    def __init__(self, shape, name=None):
+    def __init__(self, shape, trainable=True, name=None):
         """Set the shape of the node and calls the ComputationNode __init__()
 
         Args:
@@ -126,6 +126,7 @@ class Values(ComputationNode):
         """
         super(Values, self).__init__(name=name)
         self.shape = shape if isinstance(shape, tuple) else (shape, )
+        self.trainable = trainable
         self.values = None
 
     def set_values(self, values):
