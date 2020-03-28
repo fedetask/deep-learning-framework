@@ -6,6 +6,10 @@ from abc import ABC, abstractmethod
 import numpy as np
 
 
+def Input(shape, name='input'):
+    return Values(shape=shape, trainable=False, name=name)
+
+
 class ComputationNode(ABC):
     """
     This class represent the higher abstraction of a node in the computation graph. A node can
@@ -362,6 +366,21 @@ class Flatten(ComputationNode):
             return None, np.prod(parents[0].shape[1:])
         else:
             return 1, np.prod(parents[0].shape)
+
+
+class Log(ComputationNode):
+    """
+    Performs the natural logarithm operation on the input data
+    """
+
+    def _eval_node(self, parents_values):
+        return np.log(parents_values[0])
+
+    def _check_eval_input(self, parent_values):
+        pass  # Nothing to check here
+
+    def _get_shape(self, parents):
+        assert len(parents) == 1, 'Cannot perform Log on multiple inputs'
 
 
 if __name__ == '__main__':
