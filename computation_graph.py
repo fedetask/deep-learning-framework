@@ -441,14 +441,14 @@ class ReduceSum(ComputationNode):
     """
 
     def _eval_node(self, parents_values):
-        return np.sum(parents_values[0], axis=0)
+        return np.sum(parents_values[0], axis=-1)
 
     def _check_eval_input(self, parent_values):
         pass  # Nothing to check here
 
     def _get_shape(self, parents):
         assert len(parents) == 1, 'ReduceSum can be called only on a single input'
-        shape = parents[0].shape[1:]
+        shape = parents[0].shape[:-1]
         return shape if len(shape) > 0 else (1,)
 
 
