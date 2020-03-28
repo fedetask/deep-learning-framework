@@ -383,6 +383,49 @@ class Log(ComputationNode):
         assert len(parents) == 1, 'Cannot perform Log on multiple inputs'
 
 
+class Multiply(ComputationNode):
+    """Implements the scalar multiplication.
+    """
+
+    def _eval_node(self, parents_values):
+        return np.multiply(parents_values[0], parents_values[1])
+
+    def _check_eval_input(self, parent_values):
+        a_shape = parent_values[0].shape
+        b_shape = parent_values[1].shape
+        if a_shape[0] is None and b_shape[0] is None:
+            assert a_shape[0] == 1 or b_shape[0] == 1 or a_shape[0] == b_shape[0]
+
+    def _get_shape(self, parents):
+        assert len(parents) == 2
+
+        a_shape = parents[0].shape
+        b_shape = parents[1].shape
+        longer, shorter = (a_shape, b_shape) if len(a_shape) > len(b_shape) else (b_shape, a_shape)
+        for i in range(len(shorter)):
+            # The shorter shape can have a None only in its first position and only if that
+            # position is also the first of the longer, i.e. (None, a, b, c) and (None, a, b, c)
+            assert (shorter[-i] is not None) or (i == len(longer) and longer[-i] is None)
+            assert shorter[-i] == longer[-i] or shorter[-i] == 1
+        return longer
+
+
+class ReduceSum(ComputationNode):
+    """Implements the reduce sum operation as in numpy.sum(input, axis=0)
+    """
+
+    def _eval_node(self, parents_values):
+        return np.sum(parents_values[0], axis=0)
+
+    def _check_eval_input(self, parent_values):
+        pass  # Nothing to check here
+
+    def _get_shape(self, parents):
+        assert len(parents) == 1, 'ReduceSum can be called only on a single input'
+        shape = parents[0].shape[1:]
+        return shape if len(shape) > 0 else (1,)
+
+
 if __name__ == '__main__':
     X = Values(shape=(None, 10))
     X.set_values(np.ones((15, 10)))
