@@ -10,6 +10,7 @@ biases   -------+
 from abc import ABC, abstractmethod
 from computation_graph import ComputationNode, Values, DotProduct, Sum, Softmax
 from activations import get_activation
+from initializers import get_initializer
 import numpy as np
 
 
@@ -38,16 +39,23 @@ class Dense(Layer):
     """Implementation of the fully-connected layer. Works only for batches of vector inputs.
     """
 
-    def __init__(self, units, activation=None):
+    initializer_for_activation = {'relu': 'he', 'softmax': 'xavier', None: 'xavier'}
+
+    def __init__(self, units, activation=None, initializer='auto'):
         self.units = units
         self.weights = None
         self.biases = None
         self.activation = get_activation(activation)
+        if initializer == 'auto':
+            self.weights_initializer = get_initializer(Dense.initializer_for_activation[activation])
+        else:
+            self.weights_initializer = get_initializer(initializer)
+        self.bias_initializer = get_initializer('zero')
 
     def __call__(self, inputs):
         self._check_input(inputs)
 
-        # Initialize the weight matrix.
+        # Create the weights node.
         if isinstance(inputs, list):
             n_rows = sum(i.shape[-1] for i in inputs)
         else:
@@ -74,9 +82,8 @@ class Dense(Layer):
             return sum_biases
 
     def _init_weights(self):
-        stdev = np.sqrt(2. / self.weights.shape[-1])
-        self.weights.set_values(np.random.standard_normal(size=self.weights.shape) / stdev)
-        self.biases.set_values(np.zeros(self.biases.shape))
+        self.weights_initializer(self.weights)
+        self.bias_initializer(self.biases)
 
     def _check_input(self, inputs):
         """Ensures that all inputs have the same first shape
@@ -93,6 +100,8 @@ class Dense(Layer):
         """
         if isinstance(inputs, ComputationNode):  # A single ComputationNode is always valid
             return
+        if isinstance(inputs, list):
+            raise NotImplementedError('Dense on multiple layers is not implemented yet.')
         shape = inputs[0].shape
         for input_node in inputs:
             assert isinstance(input_node, ComputationNode)
