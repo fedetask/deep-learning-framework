@@ -4,10 +4,36 @@ This module defines the elements of a computation graph.
 
 from abc import ABC, abstractmethod
 import numpy as np
+import numbers
 
 
 def Input(shape, name='input'):
     return Values(shape=shape, trainable=False, name=name)
+
+
+def Variable(values, trainable=False):
+    """Creates a Values node initialized with the given values
+
+    Args:
+        values (Union[number, list, numpy.ndarray]): The value of the variable.
+        trainable (bool): Whether the variable can be updated during training.
+
+    Returns:
+        A computation_graph.Values node initialized with the given values.
+
+    """
+    if isinstance(values, numbers.Number):
+        v = np.array([values])
+    elif isinstance(values, list):
+        v = np.array(values)
+    elif isinstance(values, np.ndarray):
+        v = values
+    else:
+        raise TypeError('Wrong values type ' + type(values) + '. Only numbers, lists, '
+                                                              'or numpy.ndarray are accepted')
+    values_node = Values(shape=v.shape, trainable=trainable)
+    values_node.set_values(v)
+    return values_node
 
 
 class ComputationNode(ABC):
@@ -402,7 +428,7 @@ class Multiply(ComputationNode):
         a_shape = parents[0].shape
         b_shape = parents[1].shape
         longer, shorter = (a_shape, b_shape) if len(a_shape) > len(b_shape) else (b_shape, a_shape)
-        for i in range(len(shorter)):
+        for i in range(1, len(shorter) + 1):
             # The shorter shape can have a None only in its first position and only if that
             # position is also the first of the longer, i.e. (None, a, b, c) and (None, a, b, c)
             assert (shorter[-i] is not None) or (i == len(longer) and longer[-i] is None)
