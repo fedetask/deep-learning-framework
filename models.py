@@ -19,9 +19,6 @@ class Model:
         self.inputs.set_values(input_values)
         return self.outputs.eval()
 
-    def __call__(self, input_values):
-        return self.predict(input_values)
-
     def compile(self, loss):
         """Compile the model by applying the given loss to the computation graph.
 
@@ -35,6 +32,19 @@ class Model:
         """
         self.labels = Values(shape=self.outputs.shape, trainable=False)
         self.loss_output = get_loss(loss)(self.outputs, self.labels)
+        self._reset_cached()  # To be sure of starting from a clean graph
+
+    def _reset_cached(self):
+        """Resets the cached evaluation of all the nodes in the graph. Must be called after every
+        prediction to not reuse the previous prediction values that have been cached.
+        """
+        nodes = [self.inputs]
+        for node in nodes:
+            node.evaluation = None
+            nodes += node.children
+
+    def __call__(self, input_values):
+        return self.predict(input_values)
 
 
 if __name__ == '__main__':

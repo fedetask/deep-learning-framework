@@ -56,6 +56,7 @@ class ComputationNode(ABC):
         self.parents = []
         self.shape = None
         self.name = name
+        self.evaluation = None
 
     def __call__(self, parents):
         """Returns the ComputationNode, set to operate on the given parent nodes.
@@ -90,9 +91,13 @@ class ComputationNode(ABC):
         Returns:
             A numpy array with the result of the computation.
         """
-        parent_values = [parent.eval() for parent in self.parents]
-        self._check_eval_input(parent_values)
-        return self._eval_node(parent_values)
+        if self.evaluation is not None:  # The node was already evaluated, using cached value
+            return self.evaluation
+        else:
+            parent_values = [parent.eval() for parent in self.parents]
+            self._check_eval_input(parent_values)
+            self.evaluation = self._eval_node(parent_values)
+            return self.evaluation
 
     @abstractmethod
     def _eval_node(self, parents_values):
