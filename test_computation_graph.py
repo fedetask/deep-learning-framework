@@ -51,7 +51,7 @@ class DotProductTest(unittest.TestCase):
         dot = DotProduct()([x, y])
         self.assertEqual(dot.shape, (None, 1))
 
-    def test_dotproduct_eval(self):
+    def test_dotproduct_eval_vectors_by_matrix(self):
         x = Values(shape=(None, 15))
         x.set_values(np.random.normal(0, 1, size=(10, 15)))
 
@@ -62,6 +62,79 @@ class DotProductTest(unittest.TestCase):
         res = z.eval()
         expected = np.dot(x.values, y.values)
         self.assertTrue(np.array_equal(res, expected))
+
+
+class SumTest(unittest.TestCase):
+
+    def test_shape_fixed_vector(self):
+        x = Values(shape=(10, 5))
+        y = Values(shape=(10, 5))
+        s = Sum()([x, y])
+        self.assertEqual(s.shape, (10, 5))
+
+    def test_shape_first_None_second_fixed_vectors(self):
+        x = Values(shape=(None, 10, 5))
+        y = Values(shape=(10, 5))
+        s = Sum()([x, y])
+        self.assertEqual(s.shape, (None, 10, 5))
+
+    def test_shape_both_None_vectors(self):
+        x = Values(shape=(None, 10, 5))
+        y = Values(shape=(None, 10, 5))
+        s = Sum()([x, y])
+        self.assertEqual(s.shape, (None, 10, 5))
+
+    def test_shape_first_fixed_second_None(self):
+        x = Values(shape=(10, 5))
+        y = Values(shape=(None, 10, 5))
+        s = Sum()([x, y])
+        self.assertEqual(s.shape, (None, 10, 5))
+
+    def test_eval_fixed_shapes(self):
+        x = Values(shape=(3, 5))
+        x.set_values(np.array([[1, 2, 3, 4, 5],
+                               [0, 1, 0, 1, 0],
+                               [-1, 0, 2, 4, 6]]))
+        y = Values(shape=(3, 5))
+        y.set_values(np.ones((3,5)))
+        s = Sum()([x, y])
+        expected = np.array([[2, 3, 4, 5, 6],
+                             [1, 2, 1, 2, 1],
+                             [0, 1, 3, 5, 7]])
+        equal = np.array_equal(expected, s.eval())
+        self.assertTrue(equal)
+
+    def test_eval_None_shapes(self):
+        x = Values(shape=(None, 3, 5))
+        x.set_values(np.array([
+            [
+                [1, 2, 3, 4, 5],
+                [0, 1, 0, 1, 0],
+                [-1, 0, 2, 4, 6]
+            ],
+            [
+                [0, 0, 0, 0, 0],
+                [0, 1, 0, 1, 4],
+                [-1, 0, 7, 2, 6]
+            ],
+        ]))
+        y = Values(shape=(3, 5))
+        y.set_values(np.ones((3, 5)))
+        s = Sum()([x, y])
+        expected = np.array([
+            [
+                [2, 3, 4, 5, 6],
+                [1, 2, 1, 2, 1],
+                [0, 1, 3, 5, 7]
+            ],
+            [
+                [1, 1, 1, 1, 1],
+                [1, 2, 1, 2, 5],
+                [0, 1, 8, 3, 7]
+            ],
+        ])
+        equal = np.array_equal(expected, s.eval())
+        self.assertTrue(equal)
 
 
 class FlattenTest(unittest.TestCase):
@@ -92,8 +165,12 @@ class FlattenTest(unittest.TestCase):
 class SoftmaxTest(unittest.TestCase):
 
     def test_softmax_when_parent_shape_none_vectors(self):
-        x = Values(shape=(None, 1, 5))  # Any given number of 1x5 vectors
-        vals = np.array([[[1, 2, 3, 4, 5]], [[2, 3, 4, 5, 6]], [[1, 1, 1, 1, 1]]])
+        x = Values(shape=(None, 5))  # Any given number of 1x5 vectors
+        vals = np.array([
+            [1, 2, 3, 4, 5],
+            [2, 3, 4, 5, 6],
+            [1, 1, 1, 1, 1]
+        ])
         x.set_values(vals)
         softmax = Softmax()(x)
         self.assertEqual(softmax.shape, x.shape)
@@ -106,8 +183,12 @@ class SoftmaxTest(unittest.TestCase):
             self.assertAlmostEqual(1., np.sum(res_vector))
 
     def test_softmax_when_parent_shape_fixed_vectors(self):
-        x = Values(shape=(3, 1, 5))  # Any given number of 1x5 vectors
-        vals = np.array([[[1, 2, 3, 4, 5]], [[2, 3, 4, 5, 6]], [[1, 1, 1, 1, 1]]])
+        x = Values(shape=(3, 5))  # Any given number of 1x5 vectors
+        vals = np.array([
+            [1, 2, 3, 4, 5],
+            [2, 3, 4, 5, 6],
+            [1, 1, 1, 1, 1]
+        ])
         x.set_values(vals)
         softmax = Softmax()(x)
         self.assertEqual(softmax.shape, x.shape)
