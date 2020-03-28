@@ -18,6 +18,7 @@ class ComputationNode(ABC):
             generally set by __call__() of this node when called on parent nodes.
         shape (tuple): Provides the shape of this node to other nodes. The first element of shape
             can be None. In that case the first dimension will be determined and check at runtime.
+        name (str): Optional name of the node
     """
 
     def __init__(self, name='""'):
@@ -34,10 +35,10 @@ class ComputationNode(ABC):
         set in the shape variable
 
         Args:
-            parents (list or ComputationNode): can be a single or a list of ComputationNode
+            parents (Union[list, ComputationNode]): Can be a single or a list of ComputationNode
 
         Returns:
-            A ComputationNode object set with the given parents
+            The created ComputationNode in the graph
 
         """
         if isinstance(parents, ComputationNode):  # If called on single node
@@ -81,8 +82,13 @@ class ComputationNode(ABC):
         """Runtime check of the parent node values. Check that shape dimensions that were not
         known at graph definitions are correct at graph execution.
 
+        Args:
+            parent_values (list): List of numpy.ndarray resulting from the computation of the
+            parent nodes
+
         Raises:
-            AssertionError if the parent(s) eval() result is not compatible with the node
+            AssertionError if the dimensions that were unknown at graph definition (generally,
+            the first None dimensions) are compatible with the node functionality
 
         """
         pass
@@ -92,6 +98,9 @@ class ComputationNode(ABC):
         """Check that parents output shape is compatible with this node and compute the resulting
         output shape of this node. This check is computed at graph definition, when first
         dimensions can be None. Therefore, the resulting shape can have a first None dimension.
+
+        Args:
+            parents (list): List of parent ComputationNode that this node uses as input.
 
         Returns:
             The output shape of this node applied to the given parents.
@@ -107,22 +116,22 @@ class ComputationNode(ABC):
 
 
 class Values(ComputationNode):
-    """
-    This class represent a container node that keeps numerical values. It does not perform
+    """Extends the ComputationNode to make it able to keep numerical values. It does not perform
     operations and cannot be called on other nodes, but can be trained and other nodes can be
     called on this.
 
     Attributes:
         values (numpy.ndarray) Numpy array containing the node values. Must be set by calling
             self.set_values(values) to ensure shape consistency.
+        trainable (bool): Whether the values can be updated during training or must be kept fixed.
     """
 
     def __init__(self, shape, trainable=True, name=None):
-        """Set the shape of the node and calls the ComputationNode __init__()
+        """Extends the ComputationNode constructor by setting the node shape on instantiation.
 
         Args:
-            shape (Union[int, tuple]): Shape of the values. First dimension can be None.
-            name (str): Optional name for the node.
+            shape (tuple): Shape of the node, can have None in the first dimension.
+            trainable (bool): If true the values can be updated by backpropagation.
         """
         super(Values, self).__init__(name=name)
         self.shape = shape if isinstance(shape, tuple) else (shape, )
@@ -133,7 +142,7 @@ class Values(ComputationNode):
         """Set the given values in the node
 
         Args:
-            values (numpy.ndarray): Numpy array consistent with self.shape
+            values (numpy.ndarray): Numpy array consistent with self.shape.
 
         """
         shape_error_msg = 'Values shape ' + str(values.shape) + 'does not match with node shape '\
@@ -145,6 +154,9 @@ class Values(ComputationNode):
         self.values = values
 
     def __call__(self, parents):
+        """Values node has fixed shape and cannot have parents, therefore it cannot be called on
+        other nodes.
+        """
         raise NotImplementedError('Values node is not callable.')
 
     def _get_shape(self, parents):
@@ -161,28 +173,78 @@ class DotProduct(ComputationNode):
     """
     This node performs the dot product of two parent nodes, in the order they are given. The dot
     product is performed by broadcasting or element wise depending on the parent shapes.
+    TODO: Extend to any number of input nodes
     """
 
     def _eval_node(self, parents_values):
+        """Return the dot product of the two input nodes.
+        TODO: Make it consistent with any shape using np.einsum or np.matmul and np.squeeze
+
+        Args:
+            parents_values (list): List of numpy.ndarray of len = 2
+
+        Returns:
+            The dot product of the two inputs.
+
+        """
         return np.dot(parents_values[0], parents_values[1])
 
     def _get_shape(self, parents):
+        """Returns the shape of dot product result taking into account possible None dimensions
+        of the inputs.
+
+        Args:
+            parents (list): List of two ComputationNode of compatible shapes for the dot product
+            operation.
+
+        Returns:
+            The shape of the dot product of the two input nodes.
+
+        Raises:
+            AssertionError if parent shapes are not compatible.
+
+        """
         assert len(parents) == 2
-        a_shape = parents[0].shape
-        b_shape = parents[1].shape
-        if a_shape[0] is None and b_shape[0] is None:
-            assert a_shape[2] == b_shape[1]
-            return None, a_shape[1], b_shape[2]
-        elif a_shape[0] is None and b_shape[0] is not None:
-            assert a_shape[2] == b_shape[0]
-            return None, a_shape[1], b_shape[1]
-        elif a_shape[0] is not None and b_shape[0] is not None:
-            assert a_shape[1] == b_shape[0]
-            return a_shape[0], b_shape[1]
+        res_shape = tuple()
+        if parents[0].shape[0] is None or parents[1].shape[0] is None:
+            res_shape += (None,)
+
+        # Working now with shapes without initial None
+        if parents[0].shape[0] is None:
+            a_shape = parents[0].shape[1:]
         else:
-            raise NotImplementedError('Not implemented yet')
+            a_shape = parents[0].shape
+        if parents[1].shape[0] is None:
+            b_shape = parents[1].shape[1:]
+        else:
+            b_shape = parents[1].shape
+
+        if len(a_shape) == 1:
+            if len(b_shape) == 1:
+                assert a_shape[0] == b_shape[0]
+                return res_shape + (1,)
+            else:
+                assert a_shape[0] == b_shape[-2]
+                return res_shape + b_shape[:-2] + (b_shape[-1],)
+        else:  # len(a_shape) > 1
+            if len(b_shape) == 1:
+                assert a_shape[-1] == b_shape[0]
+                return a_shape[:-1]
+            else:  # Both shapes have len > 1
+                assert a_shape[-1] == b_shape[-2]
+                return a_shape[:-1] + b_shape[:-2] + (b_shape[-1],)
 
     def _check_eval_input(self, parent_values):
+        """Check the dimensions of the input values that were None at graph definition
+
+        Args:
+            parent_values (list): List of numpy.ndarray with input values for the dot product
+
+        Raises:
+            AssertionError if both inputs had None first dimension in the definition and those
+            dimensions do not match at runtime.
+
+        """
         a_shape = self.parents[0].shape
         b_shape = self.parents[1].shape
         # Check runtime shapes
@@ -191,9 +253,9 @@ class DotProduct(ComputationNode):
 
 
 class Sum(ComputationNode):
-    """
-    Performs the sum operation between two parent nodes. The sum is performed element wise or by
-    broadcasting depending on the parent node shapes.
+    """Performs the sum operation between two parent nodes. The sum is performed element wise or by
+    broadcasting depending on the parent node shapes. Works for only two inputs.
+    TODO: Make it work for an arbitrary number of inputs and do appropriate shape check
     """
 
     def _eval_node(self, parents_values):
@@ -265,21 +327,41 @@ class Flatten(ComputationNode):
     """
 
     def _eval_node(self, parents_values):
+        """Returns a the input flattened in a row vector, or parent_values.shape[0] row vectors
+        if the first dimension was None.
+
+        Args:
+            parents_values (list): List with a single ComputationNode that has to be flattened.
+
+        Returns:
+            numpy.ndarray flattened to a row vector or an array of row vectors depending on
+            whether the shape was defined with a None first dimension.
+
+        """
         p = parents_values[0]
         if self.parents[0].shape[0] is None:
-            return np.reshape(p, (p.shape[0], np.prod(p.shape[1:])))
+            return np.reshape(p, newshape=(p.shape[0], np.prod(p.shape[1:])))
         else:
-            return np.reshape(p, (np.prod(p.shape),)),
+            return np.reshape(p, newshape=(1, np.prod(p.shape),))
 
     def _check_eval_input(self, parent_values):
-        pass
+        pass  # Nothing to be checked here
 
     def _get_shape(self, parents):
+        """Returns the shape of the Flatten node applied to the given parent.
+
+        Args:
+            parents (list): List of a single ComputationNode
+
+        Returns:
+
+
+        """
         assert len(parents) == 1, 'Flatten can be called only on one node'
         if parents[0].shape[0] is None:
             return None, np.prod(parents[0].shape[1:])
         else:
-            return np.prod(parents[0].shape),
+            return 1, np.prod(parents[0].shape)
 
 
 if __name__ == '__main__':
