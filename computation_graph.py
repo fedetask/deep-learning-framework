@@ -299,7 +299,7 @@ class Relu(ComputationNode):
         pass  # No check to be done for relu
 
     def _get_shape(self, parents):
-        assert len(parents) == 0, 'Relu can be only called on one node'
+        assert len(parents) == 1, 'Relu can be only called on one node'
         return parents[0].shape
 
 
