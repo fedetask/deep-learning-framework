@@ -100,6 +100,6 @@ class Dense(Layer):
 
 
 if __name__ == '__main__':
-    x = Values(shape=(None, 1, 5))
+    x = Values(shape=(None, 5))
     l = Dense(units=16)(x)
     print('layer shape ' + str(l.shape))

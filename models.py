@@ -21,7 +21,7 @@ class Model:
 
 
 if __name__ == '__main__':
-    x = Values(shape=(None, 1, 5))
+    x = Values(shape=(None, 5))
     k = Dense(units=16)(x)
     model = Model(x, k)
-    res = model(np.ones(shape=(20, 1, 5)))
+    res = model(np.ones(shape=(20, 5)))

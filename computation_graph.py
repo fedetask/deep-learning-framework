@@ -365,8 +365,8 @@ class Flatten(ComputationNode):
 
 
 if __name__ == '__main__':
-    X = Values(shape=(None, 1, 10))
-    X.set_values(np.ones((15, 1, 10)))
+    X = Values(shape=(None, 10))
+    X.set_values(np.ones((15, 10)))
 
     W = Values(shape=(10, 3))  # E.g. 3 units layer
     W.set_values(np.zeros(W.shape))
@@ -379,8 +379,8 @@ if __name__ == '__main__':
     print('Result graph' + str(dot.shape) + ',  result actual ' + str(res_dot.shape))
     print('--------------------------------')
 
-    b = Values(shape=(1, 3))
-    b.set_values(np.ones((1, 3)))
+    b = Values(shape=(3,))
+    b.set_values(np.ones((3,)))
 
     sum = Sum()([dot, b])
     res_sum = sum.eval()
